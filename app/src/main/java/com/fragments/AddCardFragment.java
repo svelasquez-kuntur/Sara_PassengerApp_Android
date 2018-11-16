@@ -215,9 +215,9 @@ public class AddCardFragment extends Fragment {
                     @Override
                     public void onResponse(final JSONObject jsonObject) {
                         try {
-                            Utils.printLog("ID", "::" + jsonObject.getString("id"));
-                            Utils.printLog("ID", "::" + jsonObject.toString());
-                            //CreateCustomer(card, jsonObject.getString("id"));
+                            // Utils.printLog("ID", "::" + jsonObject.toString());
+                            // Utils.printLog("ID", "::" + jsonObject.getString("id"));
+                            CreateCustomer(card, jsonObject.getString("id"));
                         } catch (Exception e) {
                             Utils.printLog("Error", "::" + e.getMessage());
                         }
