@@ -13,8 +13,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.android.volley.Request;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
 import com.general.files.ExecuteWebServerUrl;
 import com.general.files.GeneralFunctions;
+import com.google.gson.JsonObject;
 import com.stripe.android.Stripe;
 import com.stripe.android.TokenCallback;
 import com.stripe.android.model.Card;
@@ -27,6 +33,8 @@ import com.view.MButton;
 import com.view.MaterialRippleLayout;
 import com.view.MyProgressDialog;
 import com.view.editBox.MaterialEditText;
+
+import org.json.JSONObject;
 
 import java.util.HashMap;
 
@@ -185,27 +193,47 @@ public class AddCardFragment extends Fragment {
     }
 
     public void generateToken(final Card card) {
-
-        Utils.printLog("Pub Key", "::" + generalFunc.getJsonValue("STRIPE_PUBLISH_KEY", userProfileJson));
         final MyProgressDialog myPDialog = showLoader();
 
-        String STRIPE_PUBLISH_KEY = generalFunc.getJsonValue("STRIPE_PUBLISH_KEY", userProfileJson);
-        Stripe stripe = new Stripe();
+        JSONObject cardInfo = new JSONObject();
+        JSONObject cardHolder = new JSONObject();
+        JSONObject identification = new JSONObject();
+        String mercadoPagoUrl = "https://api.mercadopago.com/v1/card_tokens?public_key=" + getString(R.string.mercado_pago_pk);
+        try {
+            identification.put("number", "35142211");
+            identification.put("type", "DNI");
+            cardHolder.put("name", "SaraUser");
+            cardHolder.put("identification", identification);
+            cardInfo.put("card_number", card.getNumber());
+            cardInfo.put("expiration_month", card.getExpMonth());
+            cardInfo.put("expiration_year", card.getExpYear());
+            cardInfo.put("card_holder", cardHolder);
+            cardInfo.put("security_code", card.getCVC());
 
-        stripe.createToken(card, STRIPE_PUBLISH_KEY, new TokenCallback() {
-            public void onSuccess(Token token) {
-                // TODO: Send Token information to your backend to initiate a charge
-                myPDialog.close();
-                Utils.printLog("Token", "::" + token.getId());
-                CreateCustomer(card, token.getId());
-            }
-
-            public void onError(Exception error) {
-                myPDialog.close();
-                Utils.printLog("Error", "::" + error.toString());
-                generalFunc.showError();
-            }
-        });
+            JsonObjectRequest request = new JsonObjectRequest
+                    (Request.Method.POST, mercadoPagoUrl, cardInfo, new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(final JSONObject jsonObject) {
+                        try {
+                            Utils.printLog("ID", "::" + jsonObject.getString("id"));
+                            Utils.printLog("ID", "::" + jsonObject.toString());
+                            //CreateCustomer(card, jsonObject.getString("id"));
+                        } catch (Exception e) {
+                            Utils.printLog("Error", "::" + e.getMessage());
+                        }
+                        myPDialog.close();
+                    }
+                }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Utils.printLog("Error", "::" + error.getMessage());
+                        myPDialog.close();
+                    }
+            });
+            Volley.newRequestQueue(getActContext()).add(request);
+        } catch (Exception e) {
+            Utils.printLog("Error", "::" + e.getMessage());
+        }
     }
 
     public void CreateCustomer(Card card, String vStripeToken) {
@@ -215,6 +243,7 @@ public class AddCardFragment extends Fragment {
         parameters.put("vStripeToken", vStripeToken);
         parameters.put("UserType", CommonUtilities.app_type);
         parameters.put("CardNo", Utils.maskCardNumber(card.getNumber()));
+        parameters.put("vCvv", card.getCVC());
 
         ExecuteWebServerUrl exeWebServer = new ExecuteWebServerUrl(getActContext(),parameters);
         exeWebServer.setLoaderConfig(getActContext(), true, generalFunc);
